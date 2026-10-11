@@ -1,0 +1,17 @@
+[package]
+name = "plock"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+arboard = { version = "3.6.1", default-features = false }
+clap = { version = "4.6.7", features = ["derive"] }
+crossterm = "0.29.0"
+drand_core = "0.0.19"
+getrandom = "0.3"
+hex = "0.4.3"
+jiff = "0.2"
+serde_json = "1.0.152"
+tlock_age = { version = "0.0.10", features = ["armor"] }
+zeroize = "1.9.1"
