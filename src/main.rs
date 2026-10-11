@@ -3,7 +3,9 @@ use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::engine::{ArgValueCandidates, CompletionCandidate};
+use clap_complete::env::CompleteEnv;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{cursor, execute};
@@ -68,10 +70,15 @@ enum Cmd {
     /// List entries and when they unlock
     List,
     /// Decrypt an entry if its time has come
-    Open { name: String },
+    Open {
+        #[arg(add = ArgValueCandidates::new(complete_names))]
+        name: String,
+    },
 }
 
 fn main() -> Result<()> {
+    // Answers shell tab-completion requests (COMPLETE=<shell>) and exits.
+    CompleteEnv::with_factory(Cli::command).complete();
     match Cli::parse().cmd {
         Cmd::New { name, duration, until, length, no_symbols } => {
             let name = name.unwrap_or_else(default_name);
@@ -189,18 +196,10 @@ fn abort_new(path: &Path, clip: Option<&mut Clip>) -> Result<()> {
 
 fn cmd_list() -> Result<()> {
     let dir = data_dir()?;
-    let mut rows = vec![];
-    if dir.exists() {
-        for entry in fs::read_dir(&dir)? {
-            let path = entry?.path();
-            if path.extension().is_none_or(|e| e != "age") {
-                continue;
-            }
-            let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let unlock = read_unlock_time(&path).ok();
-            rows.push((name, unlock));
-        }
-    }
+    let mut rows: Vec<_> = entries(&dir)?
+        .into_iter()
+        .map(|(name, path)| (name, read_unlock_time(&path).ok()))
+        .collect();
     if rows.is_empty() {
         println!("No entries in {}", dir.display());
         return Ok(());
@@ -312,6 +311,41 @@ fn data_dir() -> Result<PathBuf> {
 /// human running this by hand; `cmd_new` still refuses to overwrite.
 fn default_name() -> String {
     Zoned::now().strftime("%Y-%m-%d-%H%M%S").to_string()
+}
+
+/// (name, path) of every entry in `dir`; empty if `dir` doesn't exist yet.
+fn entries(dir: &Path) -> Result<Vec<(String, PathBuf)>> {
+    let mut out = vec![];
+    if dir.exists() {
+        for entry in fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.extension().is_none_or(|e| e != "age") {
+                continue;
+            }
+            let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+            out.push((name, path));
+        }
+    }
+    Ok(out)
+}
+
+/// Tab-completion for entry names, with the unlock status as the description
+/// (shown by fish and zsh). Errors just mean no candidates.
+fn complete_names() -> Vec<CompletionCandidate> {
+    let Ok(mut entries) = data_dir().and_then(|d| entries(&d)) else { return vec![] };
+    entries.sort();
+    let now = Zoned::now();
+    entries
+        .into_iter()
+        .map(|(name, path)| {
+            let help = match read_unlock_time(&path) {
+                Ok(t) if t <= now => "unlocked".to_string(),
+                Ok(t) => fmt_remaining(&t).map_or_else(|_| "locked".into(), |r| format!("{r} left")),
+                Err(_) => "unreadable".to_string(),
+            };
+            CompletionCandidate::new(name).help(Some(help.into()))
+        })
+        .collect()
 }
 
 fn entry_path(name: &str) -> Result<PathBuf> {

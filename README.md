@@ -38,6 +38,18 @@ plock open instagram                     # decrypts once the unlock time has pas
 
 Password options for `new`: `--length N` (default 32) and `--no-symbols`.
 
+### Tab completion
+
+`plock open <Tab>` completes entry names, and fish and zsh also show each entry's
+time left. The Nix package installs the completion scripts for bash, zsh and fish.
+With a cargo install, add one of these to your shell config:
+
+```sh
+COMPLETE=fish plock | source           # ~/.config/fish/config.fish
+source <(COMPLETE=zsh plock)           # ~/.zshrc
+source <(COMPLETE=bash plock)          # ~/.bashrc
+```
+
 ### What `new` does
 
 1. Computes the first drand round at or after the unlock time.

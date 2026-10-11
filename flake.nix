@@ -22,6 +22,14 @@
           version = cargoToml.package.version;
           src = pkgs.lib.cleanSource ./.;
           cargoLock.lockFile = ./Cargo.lock;
+          nativeBuildInputs = [ pkgs.installShellFiles ];
+          # The scripts call back into $out/bin/plock on every Tab to list entries.
+          postInstall = pkgs.lib.optionalString (pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform) ''
+            installShellCompletion --cmd plock \
+              --bash <(COMPLETE=bash $out/bin/plock) \
+              --fish <(COMPLETE=fish $out/bin/plock) \
+              --zsh <(COMPLETE=zsh $out/bin/plock)
+          '';
           meta.mainProgram = "plock";
         };
       });
