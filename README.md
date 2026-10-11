@@ -9,8 +9,19 @@ set it on the account. Until the unlock time, nobody can decrypt it, including y
 
 ## Install
 
+With Nix:
+
 ```sh
-cargo install --path .
+nix profile install .            # or: nix run . -- list
+```
+
+or add `inputs.plock.packages.${system}.default` to your nix-darwin / home-manager
+packages. `nix develop` gives a shell with cargo, clippy and rust-analyzer.
+
+With cargo:
+
+```sh
+cargo install --path . --root ~/.local   # installs to ~/.local/bin/plock
 ```
 
 ## Usage
