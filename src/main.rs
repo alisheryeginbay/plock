@@ -50,8 +50,8 @@ struct Cli {
 enum Cmd {
     /// Generate a new password and time-lock it
     New {
-        /// Name for this entry, e.g. "instagram"
-        name: String,
+        /// Name for this entry, e.g. "instagram" [default: current local time]
+        name: Option<String>,
         /// Lock duration, e.g. 7d, 2w, 36h
         #[arg(long = "for", default_value = "7d", conflicts_with = "until")]
         duration: String,
@@ -74,6 +74,7 @@ enum Cmd {
 fn main() -> Result<()> {
     match Cli::parse().cmd {
         Cmd::New { name, duration, until, length, no_symbols } => {
+            let name = name.unwrap_or_else(default_name);
             cmd_new(&name, &duration, until.as_deref(), length.into(), no_symbols)
         }
         Cmd::List => cmd_list(),
@@ -305,6 +306,12 @@ fn data_dir() -> Result<PathBuf> {
     }
     let home = std::env::var_os("HOME").context("HOME is not set")?;
     Ok(PathBuf::from(home).join(".local/share/plock"))
+}
+
+/// e.g. "2026-10-11-195312". Sorts chronologically and is unique enough for a
+/// human running this by hand; `cmd_new` still refuses to overwrite.
+fn default_name() -> String {
+    Zoned::now().strftime("%Y-%m-%d-%H%M%S").to_string()
 }
 
 fn entry_path(name: &str) -> Result<PathBuf> {
